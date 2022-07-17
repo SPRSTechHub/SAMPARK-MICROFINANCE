@@ -42,7 +42,7 @@ class Apifile extends CI_Controller
 
         $userfind = $this->query->finder(array('mobileno' => $mobileno, 'password' => $password), 'login_tbl');
         if ($userfind) {
-            $user_find = $this->query->finder(array('mobileno' => $mobileno), 'agent_tbl');
+            $user_find = $this->query->finder(array('mobile' => $mobileno), 'agent_tbl');
             $result['status'] = 1;
             $result['msg'] = "Login Successfully";
             $result['data'] = array($user_find->row());
@@ -312,6 +312,72 @@ class Apifile extends CI_Controller
         echo json_encode($result, JSON_PRETTY_PRINT);
     }
 
+    function getPendingEmi()
+    {
+        $result = array();
+        $response = array();
+        $data = $this->input->post();
+        //$data = array('emp_code' => 'SMERR09', 'loan_no' => 'MDL454515063');
+        //date = 'd-m-Y';
+
+        $emilist = $this->pendingEMI($data['loan_no']);
+        if ($emilist) {
+            $response['status'] = 1;
+            $response['msg'] = "Fetched Emi List!";
+            $response['data'] = $emilist['emis'];
+        } else {
+            $response['status'] = 0;
+            $response['msg'] = "No pending emi found!";
+        }
+
+        header('Access-Control-Allow-Origin: *', 'Content-Type: application/json; charset=utf-8');
+        echo json_encode($response, JSON_PRETTY_PRINT);
+    }
+
+    function checkEmi()
+    {
+        $response = array();
+        $searchData = '1234567890';
+        $ext_data = $this->checkData($searchData);
+        //   print_r($ext_data);
+        if ($ext_data) {
+            if ($ext_data['data_type'] == 'loan_no') {
+                $getLoanD = $this->api->finder(array($ext_data['data_type'] => $ext_data['data'], 'status' => 1), 'loan_tbl');
+                if ($getLoanD) {
+                    $getCust =  $this->api->finder(array('cust_code' => $getLoanD->row()->cust_code), 'cust_tbl');
+                    $response['custdetails'] = !empty($getCust) ? $getCust->row() : false;
+                    $response['loandetails'] = $getLoanD->row();
+                    $response['emidetails'] = $this->emiStatReport($getLoanD->row()->loan_no);
+                } else {
+                    $response['loandata'] = 'no data!';
+                }
+            } elseif ($ext_data['data_type'] == 'cust_code') {
+                $getLoanD = $this->api->finder(array($ext_data['data_type'] => $ext_data['data'], 'status' => 1), 'loan_tbl');
+                if ($getLoanD) {
+                    $getCust =  $this->api->finder(array('cust_code' => $getLoanD->row()->cust_code), 'cust_tbl');
+                    $response['custdetails'] = !empty($getCust) ? $getCust->row() : false;
+                    $response['loandetails'] = $getLoanD->row();
+                    $response['emidetails'] = $this->emiStatReport($getLoanD->row()->loan_no);
+                } else {
+                    $response['loandata'] = 'no data!';
+                }
+            } elseif ($ext_data['data_type'] == 'mobile') {
+                $getCustCode = $this->api->getcust_code(array('mobile' => $ext_data['data']));
+                $getLoanD = $this->api->finder(array('cust_code' => $getCustCode, 'status' => 1), 'loan_tbl');
+                if ($getLoanD) {
+                    $getCust =  $this->api->finder(array('cust_code' => $getLoanD->row()->cust_code), 'cust_tbl');
+                    $response['custdetails'] = !empty($getCust) ? $getCust->row() : false;
+                    $response['loandetails'] = $getLoanD->row();
+                    $response['emidetails'] = $this->emiStatReport($getLoanD->row()->loan_no);
+                } else {
+                    $response['loandata'] = 'no data!';
+                }
+            }
+        }
+        header('Access-Control-Allow-Origin: *', 'Content-Type: application/json; charset=utf-8');
+        echo json_encode($response, JSON_PRETTY_PRINT);
+    }
+
     public function add_cust_image()
     {
         $result = array();
@@ -528,7 +594,7 @@ class Apifile extends CI_Controller
     function insertEmi()
     {
 
-        $data = $this->emicalc(array('loan_no' => 'MDL454515063', 'loandate' => '26-03-2022', 'loanamount' => '15000', 'tennure' => '24'));
+        $data = $this->emicalc(array('loan_no' => 'MDL764315062', 'loandate' => '25-03-2022', 'loanamount' => '15000', 'tennure' => '24'));
         $resp = $this->api->multiInsert($data, 'emi_tbl');
 
         header('Access-Control-Allow-Origin: *', 'Content-Type: application/json; charset=utf-8');
@@ -582,50 +648,6 @@ class Apifile extends CI_Controller
         return $setails_type;
     }
 
-    function checkEmi()
-    {
-        $response = array();
-        $searchData = '1234567890';
-        $ext_data = $this->checkData($searchData);
-        print_r($ext_data);
-        if ($ext_data) {
-            if ($ext_data['data_type'] == 'loan_no') {
-                $getLoanD = $this->api->finder(array($ext_data['data_type'] => $ext_data['data'], 'status' => 1), 'loan_tbl');
-                if ($getLoanD) {
-                    $getCust =  $this->api->finder(array('cust_code' => $getLoanD->row()->cust_code), 'cust_tbl');
-                    $response['custdetails'] = !empty($getCust) ? $getCust->row() : false;
-                    $response['loandetails'] = $getLoanD->row();
-                    $response['emidetails'] = $this->emiStatReport($getLoanD->row()->loan_no);
-                } else {
-                    $response['loandata'] = 'no data!';
-                }
-            } elseif ($ext_data['data_type'] == 'cust_code') {
-                $getLoanD = $this->api->finder(array($ext_data['data_type'] => $ext_data['data'], 'status' => 1), 'loan_tbl');
-                if ($getLoanD) {
-                    $getCust =  $this->api->finder(array('cust_code' => $getLoanD->row()->cust_code), 'cust_tbl');
-                    $response['custdetails'] = !empty($getCust) ? $getCust->row() : false;
-                    $response['loandetails'] = $getLoanD->row();
-                    $response['emidetails'] = $this->emiStatReport($getLoanD->row()->loan_no);
-                } else {
-                    $response['loandata'] = 'no data!';
-                }
-            } elseif ($ext_data['data_type'] == 'mobile') {
-                $getCustCode = $this->api->getcust_code(array('mobile' => $ext_data['data']));
-                $getLoanD = $this->api->finder(array('cust_code' => $getCustCode, 'status' => 1), 'loan_tbl');
-                if ($getLoanD) {
-                    $getCust =  $this->api->finder(array('cust_code' => $getLoanD->row()->cust_code), 'cust_tbl');
-                    $response['custdetails'] = !empty($getCust) ? $getCust->row() : false;
-                    $response['loandetails'] = $getLoanD->row();
-                    $response['emidetails'] = $this->emiStatReport($getLoanD->row()->loan_no);
-                } else {
-                    $response['loandata'] = 'no data!';
-                }
-            }
-        }
-        header('Access-Control-Allow-Origin: *', 'Content-Type: application/json; charset=utf-8');
-        echo json_encode($response, JSON_PRETTY_PRINT);
-    }
-
     function emiStatReport($loanno)
     {
         $eData = array();
@@ -644,27 +666,62 @@ class Apifile extends CI_Controller
         return $eData;
     }
 
-    function getPendingEmi()
+    function findLoan($param)
     {
+        $getLoanD = $this->api->mixedfinder(array('loan_no' => $param), 'loan_tbl', 'cust_tbl');
+        if ($getLoanD) {
+            $rt = array();
+            foreach ($getLoanD as $keyv) {
+                $emi_p = $this->pendingEMI($param)['count'];
+                $data = array(
+                    'cust_code' => $keyv->cust_code,
+                    'loan_no' => $keyv->loan_no,
+                    'loan_date' => $keyv->loan_date,
+                    'loan_amnt' => $keyv->loan_amnt,
+                    'emi_amnt' => $keyv->emi_amnt,
+                    'tenure' => $keyv->tenure,
+                    'name' => $keyv->f_name . ' ' . $keyv->l_name,
+                    'mobile' => $keyv->mobile,
+                    'pending_emi_count' => !empty($emi_p) ? $emi_p : '',
+                );
+            }
+
+            return $data;
+        } else {
+            return false;
+        }
+    }
+
+    function getPendingLoans()
+    {
+        $result = array();
         $response = array();
         $loans = array();
         $data = $this->input->post();
-        $emp_code = 'SMERR09';
-        if ($emp_code) {
-            $getLoans = $this->api->finder(array('collection_agent' => $emp_code, 'status' => 1), 'loan_mgmnt_tbl');
+        //$data = array('emp_code' => 'SMERR09');
+        //date = 'd-m-Y';
+        if (!empty($data['emp_code'])) {
+            $getLoans = $this->api->finder(array('collection_agent' => $data['emp_code'], 'status' => 1), 'loan_mgmnt_tbl');
             if ($getLoans) {
                 foreach ($getLoans->result() as $rowdata) {
                     $loan_no = $rowdata->loan_no;
-                    $loans[] = array(
-                        'loan_no' => $loan_no,
-                        'pending_emi' => $this->pendingEMI($loan_no)['emis'],
-                        'pending_emi_count' => $this->pendingEMI($loan_no)['count']
-                    );
+                    $loans = $this->findLoan($loan_no);
+                    array_push($result, $loans);
                 }
+
+                $response['status'] = 1;
+                $response['msg'] = "Fetched Emi List!";
+                $response['data'] = $result;
+            } else {
+                $response['status'] = 0;
+                $response['msg'] = "No pending emi found!";
             }
+        } else {
+            $response['status'] = 0;
+            $response['msg'] = "Employee code not found in emi master!";
         }
-        $response = $loans;
-        print_r($response);
+        header('Access-Control-Allow-Origin: *', 'Content-Type: application/json; charset=utf-8');
+        echo json_encode($response, JSON_PRETTY_PRINT);
     }
 
     function pendingEMI($loan_no)
@@ -675,11 +732,13 @@ class Apifile extends CI_Controller
         if ($pendings) {
             foreach ($pendings->result() as $value) {
                 $tr[] = array(
+                    'loan_no' => $value->loan_no,
                     'emi_code' => $value->emi_id,
                     'date' => $value->emi_date,
                     'emi_amount' => $value->emi_amount,
                 );
             }
+
             $data['emis'] = $tr;
             $data['count'] = $pendings->num_rows();
         } else {

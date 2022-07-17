@@ -85,7 +85,8 @@ class Api extends CI_Model
   {
     $where = array(
       'loan_no' => $loan_no,
-      'status' => 0
+      'status' => 0,
+      'emi_date <=' => date('d-m-Y')
     );
 
     $this->db->select('*');
@@ -152,6 +153,21 @@ class Api extends CI_Model
     $query = $this->db->get();
     if ($query) {
       return $query->result_array();
+    } else {
+      return false;
+    }
+  }
+
+
+  public function mixedfinder($param, $tbl, $tbl1)
+  {
+    $this->db->from($tbl);
+    $this->db->where($param);
+    // $this->db->join('cust_docs', 'cust_tbl.cust_code = cust_docs.cust_code', 'left');
+    $this->db->join($tbl1, 'cust_tbl.cust_code = loan_tbl.cust_code', 'left');
+    $query = $this->db->get();
+    if ($query) {
+      return $query->result();
     } else {
       return false;
     }
